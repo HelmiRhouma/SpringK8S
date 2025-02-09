@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="fr" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Créer une Commande</title>
+    <link rel="stylesheet" th:href="@{/webjars/bootstrap/4.3.1/css/bootstrap.min.css}">
+</head>
+<body class="bg-light">
+<div class="container mt-5">
+    <h2 class="text-center bg-primary text-white p-3 rounded">Créer une Nouvelle Commande</h2>
+
+    <form th:action="@{/commande/save}" th:object="${commande}" method="post" class="mt-4">
+        <div class="form-group">
+            <label for="clientName">Nom du Client</label>
+            <input type="text" id="clientName" th:field="*{clientName}" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+            <label for="dateCommande">Date de la Commande</label>
+            <input type="date" id="dateCommande" th:field="*{dateCommande}" class="form-control" required>
+        </div>
+
+        <div class="form-group">
+            <label for="totalAmount">Montant Total (€)</label>
+            <input type="number" id="totalAmount" th:field="*{totalAmount}" class="form-control" step="0.01" required>
+        </div>
+
+        <button type="submit" class="btn btn-success">Enregistrer la Commande</button>
+        <a th:href="@{/commande}" class="btn btn-secondary">Annuler</a>
+    </form>
+</div>
+
+<script th:src="@{/webjars/jquery/3.6.0/jquery.min.js}"></script>
+<script th:src="@{/webjars/bootstrap/4.3.1/js/bootstrap.min.js}"></script>
+</body>
+</html>
