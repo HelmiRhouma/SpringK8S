@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
 <head>
+    <meta charset="UTF-8">
     <title>Liste des Commandes</title>
-    <!-- Inclusion de Bootstrap CSS -->
+
+    <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" />
+
     <style>
-        /* Style pour le toast */
         .toast-container {
             position: fixed;
             top: 10px;
@@ -16,70 +18,69 @@
 </head>
 <body>
 <div class="container mt-5">
-    <h2 class="text-center bg-info mt-5 mb-4 rounded-5">Liste des Commandes</h2>
-
-<!--    &lt;!&ndash; Affichage d'un message de succès après une opération &ndash;&gt;-->
-<!--    <div th:if="${message}" class="alert alert-success text-center">-->
-<!--        <span th:text="${message}"></span>-->
-<!--    </div>-->
+    <h2 class="text-center bg-info mt-5 mb-4 p-3 rounded-5 text-white">Liste des Commandes</h2>
 
     <!-- Bouton pour ajouter une nouvelle commande -->
-    <div class="m-2 text-center">
-        <a class="h3 bg-warning text-light rounded m-5 p-1" th:href="@{/commande/new}">Créer une Nouvelle Commande</a>
+    <div class="text-center mb-4">
+        <a class="h5 bg-warning text-white rounded p-2 text-decoration-none" th:href="@{/commande/new}">Créer une Nouvelle Commande</a>
     </div>
 
     <!-- Formulaire de recherche -->
     <form th:action="@{/commande/commandes}" method="get" class="mb-4">
         <div class="input-group">
-            <input type="text" name="keyword" class="form-control" placeholder="Rechercher par client" th:value="${keyword}">
+            <input type="text" name="keyword" class="form-control" placeholder="Rechercher par client" th:value="${keyword}" />
             <button type="submit" class="btn btn-primary">Recherche</button>
         </div>
     </form>
 
-    <!-- Tableau affichant la liste des commandes -->
+    <!-- Tableau affichant les commandes -->
     <table class="table table-striped table-bordered">
         <thead class="table-dark">
         <tr>
-            <th>Client Name</th>
+            <th>Nom du Client</th>
             <th>Date Commande</th>
-            <th>Total Amount</th>
+            <th>Montant Total (€)</th>
             <th>Actions</th>
         </tr>
         </thead>
         <tbody>
-        <th:block th:each="commande : ${commandes}">
-            <tr id="commande-[[${commande.id}]]">
-                <td th:text="${commande.clientName}"></td>
-                <td th:text="${commande.dateCommande}"></td>
-                <td th:text="${commande.totalAmount}"></td>
-                <td>
-                    <a th:href="@{'/commande/edit/' + ${commande.id}}" class="btn btn-primary me-3">Modifier</a>
-                    <button type="button"
-                            class="btn btn-danger"
-                            data-bs-toggle="modal"
-                            data-bs-target="#confirmDeleteModal"
-                            th:data-href="@{/commande/delete/{id}(id=${commande.id})}">
-                        Supprimer
-                    </button>
-                    <button class="btn btn-success" th:attr="onclick='imprimerCommande(${commande.id})'">Imprimer</button>
-                </td>
-            </tr>
-        </th:block>
+        <tr th:each="commande : ${commandes}" th:id="'commande-' + ${commande.id}">
+            <td th:text="${commande.clientName}">Client</td>
+            <td th:text="${commande.dateCommande}">Date</td>
+            <td th:text="${commande.totalAmount}">0.00</td>
+            <td>
+                <a th:href="@{'/commande/edit/' + ${commande.id}}" class="btn btn-primary me-2">Modifier</a>
+
+                <button type="button"
+                        class="btn btn-danger me-2"
+                        data-bs-toggle="modal"
+                        data-bs-target="#confirmDeleteModal"
+                        th:attr="data-href=@{/commande/delete/{id}(id=${commande.id})}">
+                    Supprimer
+                </button>
+
+                <button type="button"
+                        class="btn btn-success"
+                        th:attr="onclick=|imprimerCommande(${commande.id})|">
+                    Imprimer
+                </button>
+            </td>
+        </tr>
         </tbody>
     </table>
 </div>
 
 <!-- Bouton Exit -->
 <div class="text-center fixed-bottom mb-3">
-    <a class="h3 bg-warning text-light rounded p-2" th:href="@{/index}">Exit</a>
+    <a class="h5 bg-warning text-white rounded p-2 text-decoration-none" th:href="@{/index}">Quitter</a>
 </div>
 
-<!-- Modal de confirmation de suppression -->
+<!-- Modal de confirmation -->
 <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="confirmDeleteModalLabel">Confirmer la suppression</h5>
+                <h5 class="modal-title">Confirmer la suppression</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
             </div>
             <div class="modal-body">
@@ -93,36 +94,80 @@
     </div>
 </div>
 
-<!-- Toast Notification -->
+<!-- Toast notification -->
 <div class="toast-container">
-    <div class="toast" id="toastDelete" th:if="${message}" style="display:block;">
+    <div class="toast show" id="toastDelete" th:if="${message}">
         <div class="toast-body">
             <span th:text="${message}"></span>
         </div>
     </div>
 </div>
 
-<!-- Script pour mettre à jour dynamiquement le lien du bouton de suppression dans le modal -->
+<!-- Scripts Bootstrap -->
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
+
+<!-- Script personnalisé -->
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
+        // Gestion du lien dynamique de suppression
         var confirmDeleteModal = document.getElementById('confirmDeleteModal');
         confirmDeleteModal.addEventListener('show.bs.modal', function (event) {
             var button = event.relatedTarget;
             var deleteUrl = button.getAttribute('data-href');
             document.getElementById('confirmDeleteButton').setAttribute('href', deleteUrl);
         });
+
+        // Afficher le toast si présent
+        showToast();
     });
 
-    // Afficher le toast après la suppression
     function showToast() {
-        var toast = document.getElementById('toastDelete');
-        var bsToast = new bootstrap.Toast(toast);
-        bsToast.show();
+        var toastElement = document.getElementById('toastDelete');
+        if (toastElement) {
+            var toast = new bootstrap.Toast(toastElement);
+            toast.show();
+        }
     }
-</script>
 
-<!-- Inclusion des scripts nécessaires à Bootstrap 5 -->
-<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
+    function imprimerCommande(id) {
+        const row = document.getElementById('commande-' + id);
+        if (!row) return;
+
+        const clientName = row.children[0].innerText;
+        const dateCommande = row.children[1].innerText;
+        const montantTotal = row.children[2].innerText;
+
+        const printWindow = window.open('', '_blank', 'width=800,height=600');
+        printWindow.document.write(`
+            <html>
+            <head>
+                <title>Impression Commande</title>
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" />
+            </head>
+            <body class="p-5">
+            <h2 class="text-center mb-4">Boutique Madame Wejden Saaid ❤️</h2>
+                <h2 class="text-center mb-4">Détails de la Commande</h2>
+                <table class="table table-bordered">
+                    <tr><th>Nom du Client</th><td>${clientName}</td></tr>
+                    <tr><th>Date de Commande</th><td>${dateCommande}</td></tr>
+                    <tr><th>Montant Total</th><td>${montantTotal} €</td></tr>
+                </table>
+                <div class="text-center mt-5">
+                    <em>Merci pour votre commande .</em>
+                </div>
+                <script>
+                    window.onload = function() {
+                        window.print();
+                        window.onafterprint = function () {
+                            window.close();
+                        };
+                    };
+
+
+`);
+printWindow.document.close();
+}
+</script>
 </body>
 </html>

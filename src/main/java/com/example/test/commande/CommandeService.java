@@ -15,26 +15,21 @@ public class CommandeService {
     public List<Commande> listAll() {
         return repo.findAll();
     }
-
     // Recherche des commandes par nom de client
     public List<Commande> findByClientNameContaining(String keyword) {
         return repo.findByClientNameContaining(keyword);  // Recherche par nom de client
     }
-
     // Sauvegarde d'une commande
     public void save(Commande commande) {
         repo.save(commande);
     }
-
     // Récupération d'une commande par son ID
     public Commande get(Integer id) throws CommandeNotFoundException {
         return repo.findById(id).orElseThrow(() -> new CommandeNotFoundException("Commande introuvable avec ID " + id));
     }
-
     // Suppression d'une commande par son ID
     public void delete(Integer id) throws CommandeNotFoundException {
         Commande commande = repo.findById(id).orElseThrow(() -> new CommandeNotFoundException("Commande non trouvée avec l'ID " + id));
         repo.delete(commande);
     }
-
 }
