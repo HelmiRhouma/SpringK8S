@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: springboot-app
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/HelmiRhouma/SpringK8S.git
+    targetRevision: main
+    path: k8s/mysql
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: springboot-app
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespace=true
