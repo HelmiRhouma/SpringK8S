@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: springboot-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: RootPassword123!
+      MYSQL_DATABASE: springboot_test
+      MYSQL_USER: helmi_user
+      MYSQL_PASSWORD: Helmi@2025
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-u", "root", "-pRootPassword123!" ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+    networks:
+      - springboot-network
+
+  app:
+    build: .
+    container_name: springboot-app
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: springboot_test
+      DB_USER: helmi_user
+      DB_PASSWORD: Helmi@2025
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - springboot-network
+    restart: on-failure
+
+volumes:
+  mysql-data:
+
+networks:
+  springboot-network:
+    driver: bridge
