@@ -20,11 +20,9 @@ spec:
       labels:
         app: springboot-app
     spec:
-      imagePullSecrets:
-        - name: acr-secret
       containers:
         - name: springboot-app
-          image: springbootacr1760802831.azurecr.io/springboot-app:latest
+          image: gcr.io/PROJECT_ID/springboot-app:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -43,13 +41,13 @@ spec:
               memory: 512Mi
           livenessProbe:
             httpGet:
-              path: /health
+              path: /
               port: 8080
-            initialDelaySeconds: 30
+            initialDelaySeconds: 60
             periodSeconds: 10
           readinessProbe:
             httpGet:
-              path: /health
+              path: /
               port: 8080
-            initialDelaySeconds: 10
+            initialDelaySeconds: 30
             periodSeconds: 5
