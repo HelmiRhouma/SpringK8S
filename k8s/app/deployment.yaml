@@ -20,9 +20,10 @@ spec:
       labels:
         app: springboot-app
     spec:
+      # SUPPRIMÉ: imagePullSecrets (EKS a accès automatique à ECR)
       containers:
         - name: springboot-app
-          image: gcr.io/PROJECT_ID/springboot-app:latest
+          image: 582930559127.dkr.ecr.us-east-1.amazonaws.com/springboot-app:latest  # ← VOTRE IMAGE ECR
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -45,9 +46,13 @@ spec:
               port: 8080
             initialDelaySeconds: 60
             periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
           readinessProbe:
             httpGet:
               path: /
               port: 8080
             initialDelaySeconds: 30
             periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 3
