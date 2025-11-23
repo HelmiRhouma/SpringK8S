@@ -12,21 +12,31 @@ spec:
     repoURL: https://github.com/HelmiRhouma/SpringK8S.git
     targetRevision: main
     path: k8s/app
-    
+  
   destination:
     server: https://kubernetes.default.svc
     namespace: springboot-app
   
   syncPolicy:
     automated:
-      prune: true
-      selfHeal: true
+      prune: true       # Supprime les ressources orphelines
+      selfHeal: true    # Corrige les drifts automatiquement
       allowEmpty: false
     syncOptions:
-    - CreateNamespace=true
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    
     retry:
       limit: 5
       backoff:
         duration: 5s
         factor: 2
         maxDuration: 3m
+  
+  # Ignorer certaines différences pour éviter les sync inutiles
+  ignoreDifferences:
+  - group: apps
+    kind: Deployment
+    jsonPointers:
+    - /spec/replicas  # Ignorer si HPA modifie les replicas
