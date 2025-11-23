@@ -3,8 +3,6 @@ name: Build and Deploy to Azure AKS
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
 
 env:
   ACR_NAME: helmiacr2025
@@ -39,12 +37,23 @@ jobs:
     - name: Login to ACR
       run: az acr login --name ${{ env.ACR_NAME }}
     
-    - name: Build and Push Docker Image
+    - name: Build and Push Docker Image with Unique Tag
       run: |
-        docker build -t ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }} .
+        # Tag unique basé sur le SHA du commit
+        IMAGE_TAG=${{ github.sha }}
+        SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+        
+        echo "🏷️  Building image with tags: $SHORT_SHA and latest"
+        
+        # Build avec tag SHA et latest
+        docker build -t ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${SHORT_SHA} .
         docker build -t ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest .
-        docker push ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        
+        # Push les deux tags
+        docker push ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${SHORT_SHA}
         docker push ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
+        
+        echo "✅ Image pushed with SHA: $SHORT_SHA"
 
   deploy:
     name: Deploy to AKS
@@ -64,15 +73,38 @@ jobs:
       run: |
         az aks get-credentials \
           --resource-group ${{ env.RESOURCE_GROUP }} \
-          --name ${{ env.AKS_CLUSTER }}
+          --name ${{ env.AKS_CLUSTER }} \
+          --overwrite-existing
     
-    - name: Update Deployment Image
+    - name: Update Deployment with New Image
       run: |
+        SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+        NEW_IMAGE=${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${SHORT_SHA}
+        
+        echo "🚀 Deploying image: $NEW_IMAGE"
+        
+        # Update avec le tag SHA (unique à chaque commit)
         kubectl set image deployment/springboot-app \
-          springboot-app=${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+          springboot-app=$NEW_IMAGE \
           -n springboot-app
+        
+        echo "✅ Deployment updated with image tag: $SHORT_SHA"
+    
+    - name: Wait for Rollout
+      run: |
+        echo "⏳ Waiting for rollout to complete..."
+        kubectl rollout status deployment/springboot-app -n springboot-app --timeout=5m
     
     - name: Verify Deployment
       run: |
-        kubectl rollout status deployment/springboot-app -n springboot-app
-        kubectl get pods -n springboot-app
+        echo "📊 Current deployment status:"
+        kubectl get deployment springboot-app -n springboot-app
+        
+        echo ""
+        echo "📦 Running pods:"
+        kubectl get pods -n springboot-app -l app=springboot-app
+        
+        echo ""
+        echo "🐳 Image used:"
+        kubectl get pods -n springboot-app -l app=springboot-app -o jsonpath='{.items[0].spec.containers[0].image}'
+        echo ""
