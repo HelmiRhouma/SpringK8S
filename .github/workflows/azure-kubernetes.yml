@@ -1,35 +1,42 @@
-name: Build and Deploy (GitOps with ArgoCD)
+name: CI/CD Pipeline
 
 on:
   push:
     branches: [ main ]
     paths-ignore:
-      - 'k8s/app/deployment.yaml'  # Éviter boucle infinie
+      - 'k8s/app/deployment.yaml'
+      - 'README.md'
+      - 'screenshots/**'
 
 env:
   ACR_NAME: helmiacr2025
   IMAGE_NAME: springboot-app
+  AKS_CLUSTER: springboot-aks
+  RESOURCE_GROUP: springboot-rg
 
 jobs:
-  build-and-update:
-    name: Build Docker Image and Update Manifest
+  build-and-deploy:
+    name: Build, Push and Deploy
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+    - name: Checkout repository
+      uses: actions/checkout@v4
       with:
-        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
     
-    - name: Generate image tag
+    - name: Generate unique image tag
       id: tag
       run: |
         SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
         echo "sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
-        echo "🏷️  Image tag: ${SHORT_SHA}"
+        echo "📦 Image tag: ${SHORT_SHA}"
     
-    - name: Set up JDK 17
-      uses: actions/setup-java@v3
+    - name: Setup JDK 17
+      uses: actions/setup-java@v4
       with:
         java-version: '17'
         distribution: 'temurin'
@@ -37,8 +44,9 @@ jobs:
     
     - name: Build with Maven
       run: |
-        echo "📦 Building application..."
-        mvn clean package -DskipTests
+        echo "🔨 Building application..."
+        mvn clean package -DskipTests -q
+        echo "✅ Maven build completed"
     
     - name: Login to Azure
       uses: azure/login@v1
@@ -49,10 +57,9 @@ jobs:
       run: |
         IMAGE_TAG=${{ steps.tag.outputs.sha }}
         
-        echo "🔐 Login to ACR..."
+        echo "🐳 Building Docker image..."
         az acr login --name ${{ env.ACR_NAME }}
         
-        echo "🐳 Building Docker image..."
         docker build -t ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${IMAGE_TAG} .
         docker build -t ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest .
         
@@ -60,57 +67,71 @@ jobs:
         docker push ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${IMAGE_TAG}
         docker push ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
         
-        echo "✅ Image pushed: ${IMAGE_TAG}"
+        echo "✅ Docker image pushed successfully"
     
-    - name: Update Kubernetes Manifest
+    - name: Update Kubernetes manifest
       run: |
         IMAGE_TAG=${{ steps.tag.outputs.sha }}
         NEW_IMAGE="${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${IMAGE_TAG}"
         
-        echo "📝 Updating k8s/app/deployment.yaml..."
-        echo "   New image: ${NEW_IMAGE}"
-        
-        # Update image in deployment.yaml
+        echo "📝 Updating deployment manifest..."
         sed -i "s|image: helmiacr2025.azurecr.io/springboot-app:.*|image: ${NEW_IMAGE}|g" k8s/app/deployment.yaml
         
-        echo "✅ Manifest updated"
-        echo ""
-        echo "📋 Changes:"
-        git diff k8s/app/deployment.yaml
+        echo "✅ Manifest updated with image: ${NEW_IMAGE}"
     
-    - name: Commit and Push to Git
+    - name: Commit and push manifest
       run: |
         IMAGE_TAG=${{ steps.tag.outputs.sha }}
         
-        git config user.name "GitHub Actions Bot"
-        git config user.email "actions@github.com"
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
         
         git add k8s/app/deployment.yaml
         
-        # Only commit if there are changes
+        # Check if there are changes
         if git diff --staged --quiet; then
           echo "⚠️  No changes to commit"
-        else
-          git commit -m "🚀 Deploy: Update image to ${IMAGE_TAG}
-
-Automated deployment by GitHub Actions
-- Commit: ${{ github.sha }}
-- Build: #${{ github.run_number }}
-- Image: ${IMAGE_TAG}
-
-ArgoCD will auto-sync this change in ~30 seconds"
-          
-          git push
-          
-          echo ""
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "✅ MANIFEST PUSHED TO GIT"
-          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo ""
-          echo "🔄 ArgoCD will now:"
-          echo "   1. Detect the Git change (10-30 seconds)"
-          echo "   2. Sync automatically"
-          echo "   3. Trigger rolling update on AKS"
-          echo ""
-          echo "🌐 Monitor ArgoCD: http://20.75.210.13"
+          exit 0
         fi
+        
+        git commit -m "🚀 deploy: Update image to ${IMAGE_TAG}
+
+Automated deployment
+- Image: ${IMAGE_TAG}
+- Build: #${{ github.run_number }}
+- Commit: ${{ github.sha }}"
+        
+        # Push with retry
+        for i in {1..3}; do
+          if git push; then
+            echo "✅ Manifest pushed to Git (attempt $i)"
+            break
+          else
+            echo "⚠️  Push failed, retrying... (attempt $i/3)"
+            sleep 2
+          fi
+        done
+    
+    - name: Wait for ArgoCD sync
+      run: |
+        echo "⏳ Waiting for ArgoCD to sync (60 seconds)..."
+        sleep 60
+    
+    - name: Verify deployment
+      run: |
+        az aks get-credentials \
+          --resource-group ${{ env.RESOURCE_GROUP }} \
+          --name ${{ env.AKS_CLUSTER }} \
+          --overwrite-existing
+        
+        echo "📊 Deployment status:"
+        kubectl get deployment springboot-app -n springboot-app
+        
+        echo ""
+        echo "📦 Pods:"
+        kubectl get pods -n springboot-app
+        
+        echo ""
+        echo "🐳 Current image:"
+        kubectl get deployment springboot-app -n springboot-app -o jsonpath='{.spec.template.spec.containers[0].image}'
+        echo ""
