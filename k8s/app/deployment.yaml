@@ -23,7 +23,7 @@ spec:
       # SUPPRIMÉ: imagePullSecrets (EKS a accès automatique à ECR)
       containers:
         - name: springboot-app
-          image: helmiacr2025.azurecr.io/springboot-app:e9052af
+          image: helmiacr2025.azurecr.io/springboot-app:4fb39ce
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
