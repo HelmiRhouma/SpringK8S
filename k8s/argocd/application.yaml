@@ -18,8 +18,3 @@ spec:
       selfHeal: true
     syncOptions:
     - CreateNamespace=true
-    retry:
-      limit: 5
-      backoff:
-        duration: 5s
-        maxDuration: 1m

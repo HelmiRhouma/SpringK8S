@@ -1,27 +1,31 @@
-name: GitOps CI/CD Pipeline
+name: Deploy to AKS
 
 on:
   push:
     branches: [ main ]
     paths-ignore:
       - 'k8s/app/deployment.yaml'
+      - '*.md'
+      - 'DEV-GUIDE.md'
 
 env:
   ACR_NAME: helmiacr2025
   IMAGE_NAME: springboot-app
 
 jobs:
-  build:
-    name: Build and Push Image
+  deploy:
     runs-on: ubuntu-latest
-    outputs:
-      image-tag: ${{ steps.tag.outputs.sha }}
+    permissions:
+      contents: write
     
     steps:
     - name: Checkout
       uses: actions/checkout@v4
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        fetch-depth: 0
     
-    - name: Generate tag
+    - name: Generate Tag
       id: tag
       run: echo "sha=$(echo ${{ github.sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
     
@@ -32,7 +36,7 @@ jobs:
         distribution: 'temurin'
         cache: maven
     
-    - name: Maven Build
+    - name: Build Maven
       run: mvn clean package -DskipTests
     
     - name: Azure Login
@@ -40,37 +44,25 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
     
-    - name: Docker Build & Push
+    - name: Build & Push Image
       run: |
         TAG=${{ steps.tag.outputs.sha }}
         az acr login --name ${{ env.ACR_NAME }}
         docker build -t ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${TAG} .
         docker push ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${TAG}
-        echo "✅ Image pushed: ${TAG}"
-
-  update-manifest:
-    name: Update Manifest (GitOps)
-    needs: build
-    runs-on: ubuntu-latest
     
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Update deployment.yaml
+    - name: Update Manifest
       run: |
-        TAG=${{ needs.build.outputs.image-tag }}
+        TAG=${{ steps.tag.outputs.sha }}
         sed -i "s|image: helmiacr2025.azurecr.io/springboot-app:.*|image: helmiacr2025.azurecr.io/springboot-app:${TAG}|g" k8s/app/deployment.yaml
-        echo "✅ Updated to: ${TAG}"
     
     - name: Commit & Push
       run: |
-        TAG=${{ needs.build.outputs.image-tag }}
+        TAG=${{ steps.tag.outputs.sha }}
         git config user.name "github-actions[bot]"
         git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
         git add k8s/app/deployment.yaml
-        git diff --staged --quiet || git commit -m "🚀 deploy: ${TAG} [skip ci]"
-        git push || (git pull --rebase && git push)
-        echo "✅ Manifest updated in Git"
+        git diff --staged --quiet && exit 0
+        git commit -m "🚀 Deploy ${TAG} [skip ci]"
+        git pull --rebase origin main || true
+        git push origin main
